@@ -1,22 +1,28 @@
 package feign
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
-	"net/url"
 	"reflect"
 	"strings"
+
+	"github.com/go-resty/resty/v2"
 )
 
 type Client struct {
-	BaseURL string
+	baseURL     string
+	restyClient *resty.Client
 }
 
-func NewClient(baseURL string) *Client {
-	return &Client{BaseURL: baseURL}
+func NewClient(baseURL string, configs ...*Config) *Client {
+	cfg := GetConfig(configs...)
+	return &Client{
+		baseURL: baseURL,
+		restyClient: resty.New().SetBaseURL(baseURL).
+			SetTimeout(cfg.Timeout).
+			SetRetryCount(cfg.RetryCount).
+			SetRetryWaitTime(cfg.RetryWait),
+	}
 }
 
 // HttpError giúp phân biệt lỗi HTTP như 401, 404, 500
@@ -83,16 +89,10 @@ func (c *Client) Create(target any) {
 
 		fn := reflect.MakeFunc(methodType, func(args []reflect.Value) []reflect.Value {
 			j := 0
-			var body io.ReadCloser = http.NoBody
+			var body interface{} = nil
 
 			if bodyParam != "" {
-				jsonBytes, err := json.Marshal(args[j].Interface())
-				if err != nil {
-					out0 := reflect.Zero(methodType.Out(0))
-					out1 := reflect.ValueOf(fmt.Errorf("marshal body failed: %w", err))
-					return []reflect.Value{out0, out1}
-				}
-				body = io.NopCloser(bytes.NewReader(jsonBytes))
+				body = args[j].Interface()
 				j++
 			}
 
@@ -107,82 +107,78 @@ func (c *Client) Create(target any) {
 				j++
 			}
 
-			// Encode query
-			query := make([]string, 0)
+			// Chuẩn bị query params
+			queryParams := map[string]string{}
 			for _, q := range queries {
 				if j >= len(args) {
 					break
 				}
-				query = append(query, fmt.Sprintf("%s=%s", q, url.QueryEscape(fmt.Sprintf("%v", args[j].Interface()))))
+				queryParams[q] = fmt.Sprintf("%v", args[j].Interface())
 				j++
 			}
-			if len(query) > 0 {
-				pathProcessed += "?" + strings.Join(query, "&")
-			}
 
-			req, err := http.NewRequest(httpMethod, c.BaseURL+pathProcessed, body)
-			if err != nil {
-				out0 := reflect.Zero(methodType.Out(0))
-				out1 := reflect.ValueOf(fmt.Errorf("create request failed: %w", err))
-				return []reflect.Value{out0, out1}
-			}
-
-			if bodyParam != "" {
-				req.Header.Set("Content-Type", "application/json")
-			}
-
+			// Chuẩn bị headers
+			headersMap := map[string]string{}
 			for _, h := range headers {
 				if j >= len(args) {
 					break
 				}
-				req.Header.Set(h, fmt.Sprintf("%v", args[j].Interface()))
+				headersMap[h] = fmt.Sprintf("%v", args[j].Interface())
 				j++
 			}
 
-			// Log request
-			fmt.Printf("➡️ Request: %s %s\n", req.Method, req.URL.String())
-			if bodyParam != "" {
-				b, _ := io.ReadAll(body)
-				fmt.Println("📝 Body:", string(b))
-				body = io.NopCloser(bytes.NewReader(b)) // reset body
-				req.Body = body
-			}
-			for k, v := range req.Header {
-				fmt.Printf("🔐 Header: %s = %s\n", k, strings.Join(v, ", "))
+			// Tạo request Resty
+			r := c.restyClient.R()
+
+			// Set headers
+			for k, v := range headersMap {
+				r.SetHeader(k, v)
 			}
 
-			resp, err := http.DefaultClient.Do(req)
+			if bodyParam != "" {
+				r.SetHeader("Content-Type", "application/json")
+				r.SetBody(body)
+			}
+
+			// Set query params
+			if len(queryParams) > 0 {
+				r.SetQueryParams(queryParams)
+			}
+
+			// Log request info
+			fmt.Printf("➡️ Request: %s %s\n", httpMethod, c.baseURL+pathProcessed)
+			if bodyParam != "" {
+				bodyJson, _ := json.Marshal(body)
+				fmt.Println("📝 Body:", string(bodyJson))
+			}
+			for k, v := range headersMap {
+				fmt.Printf("🔐 Header: %s = %s\n", k, v)
+			}
+			if len(queryParams) > 0 {
+				fmt.Printf("🔍 Query: %+v\n", queryParams)
+			}
+
+			resp, err := r.Execute(httpMethod, pathProcessed)
 			if err != nil {
-				// Lỗi kết nối: không có server phản hồi
 				out0 := reflect.Zero(methodType.Out(0))
 				httpErr := &HttpError{
-					StatusCode: 0, // không phải HTTP
+					StatusCode: 0,
 					Status:     "connection failed",
 					Body:       err.Error(),
 				}
 				return []reflect.Value{out0, reflect.ValueOf(httpErr)}
 			}
-			defer func(Body io.ReadCloser) {
-				_ = Body.Close()
-			}(resp.Body)
 
-			respBytes, err := io.ReadAll(resp.Body)
-			if err != nil {
-				out0 := reflect.Zero(methodType.Out(0))
-				out1 := reflect.ValueOf(fmt.Errorf("read response failed: %w", err))
-				return []reflect.Value{out0, out1}
-			}
+			respBytes := resp.Body()
 
-			// Trả lỗi nếu không phải 2xx
-			if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+			if resp.StatusCode() < 200 || resp.StatusCode() >= 300 {
 				out0 := reflect.Zero(methodType.Out(0))
 				httpErr := &HttpError{
-					StatusCode: resp.StatusCode,
-					Status:     resp.Status,
+					StatusCode: resp.StatusCode(),
+					Status:     resp.Status(),
 					Body:       string(respBytes),
 				}
-				out1 := reflect.ValueOf(httpErr)
-				return []reflect.Value{out0, out1}
+				return []reflect.Value{out0, reflect.ValueOf(httpErr)}
 			}
 
 			// Unmarshal

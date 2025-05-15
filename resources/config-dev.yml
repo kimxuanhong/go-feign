@@ -1,0 +1,4 @@
+feign:
+  timeout: 40s
+  retry_count: 3
+  retry_wait: 1s

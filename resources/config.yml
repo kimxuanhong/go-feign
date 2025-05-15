@@ -1,0 +1,4 @@
+feign:
+  timeout: 40s
+  retry_count: 0  // gia tri 0 la khong retry
+  retry_wait: 1s
