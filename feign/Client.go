@@ -9,14 +9,18 @@ import (
 	"github.com/go-resty/resty/v2"
 )
 
-type Client struct {
+type Client interface {
+	Create(target any)
+}
+
+type feignClient struct {
 	baseURL     string
 	restyClient *resty.Client
 }
 
-func NewClient(baseURL string, configs ...*Config) *Client {
+func NewClient(baseURL string, configs ...*Config) Client {
 	cfg := GetConfig(configs...)
-	return &Client{
+	return &feignClient{
 		baseURL: baseURL,
 		restyClient: resty.New().SetBaseURL(baseURL).
 			SetTimeout(cfg.Timeout).
@@ -37,7 +41,7 @@ func (e *HttpError) Error() string {
 }
 
 // Create gán các hàm vào struct target (ví dụ: *UserClient)
-func (c *Client) Create(target any) {
+func (c *feignClient) Create(target any) {
 	t := reflect.TypeOf(target).Elem()
 	v := reflect.ValueOf(target).Elem()
 
