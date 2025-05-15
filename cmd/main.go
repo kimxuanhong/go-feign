@@ -22,28 +22,29 @@ type User struct {
 }
 
 type UserClient struct {
-	GetUser     func(id string, auth string) (*User, error)              `feign:"@GET /api/v1/users/{id} | @Path id | @Header Authorization"`
-	GetUserById func(user string, id string, auth string) (*User, error) `feign:"@GET /api/v1/users/{user} | @Path user | @Query id | @Header Authorization"`
-	CreateUser  func(user User, auth string) (*User, error)              `feign:"@POST /api/v1/users | @Body user | @Header Authorization"`
-	UpdateUser  func(user User, auth string) (*User, error)              `feign:"@POST /api/v1/users | @Body user | @Header Authorization"`
-	GetAllUser  func(auth string) ([]User, error)                        `feign:"@POST /api/v1/users | @Header Authorization"`
+	_           struct{}                                                 `feign:"@Url http://localhost:8081/api/v1"`
+	GetUser     func(id string, auth string) (*User, error)              `feign:"@GET /users/{id} | @Path id | @Header Authorization"`
+	GetUserById func(user string, id string, auth string) (*User, error) `feign:"@GET /users/{user} | @Path user | @Query id | @Header Authorization"`
+	CreateUser  func(user User, auth string) (*User, error)              `feign:"@POST /users | @Body user | @Header Authorization"`
+	UpdateUser  func(user User, auth string) (*User, error)              `feign:"@POST /users | @Body user | @Header Authorization"`
+	GetAllUser  func(auth string) ([]User, error)                        `feign:"@POST /users | @Header Authorization"`
 }
 
 func main() {
 	config.LoadConfigFile()
 	client := &UserClient{} // KHỞI TẠO
-	feignClient := feign.NewClient("http://localhost:8081")
+	feignClient := feign.NewClient()
 	feignClient.Create(client) // OK
 
-	//user, err := client.GetUser("123", "token") // gọi được, vì func đã được gán
-	//fmt.Println(user, err)
+	user, err := client.GetUser("123", "token") // gọi được, vì func đã được gán
+	fmt.Println(user, err)
 
 	//user2, err := client.GetUserById("123", "hong kim", "token") // gọi được, vì func đã được gán
 	//fmt.Println(user2, err)
 
-	newUser := User{UserName: "Alice"}
-	createdUser, err := client.CreateUser(newUser, "Bearer xyz")
-	fmt.Println(createdUser, err)
+	//newUser := User{UserName: "Alice"}
+	//createdUser, err := client.CreateUser(newUser, "Bearer xyz")
+	//fmt.Println(createdUser, err)
 
 	if err != nil {
 		var httpErr *feign.HttpError

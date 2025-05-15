@@ -3,6 +3,7 @@ package feign
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/spf13/viper"
 	"reflect"
 	"strings"
 
@@ -15,14 +16,16 @@ type Client interface {
 
 type feignClient struct {
 	baseURL     string
+	headers     map[string]string
 	restyClient *resty.Client
 }
 
-func NewClient(baseURL string, configs ...*Config) Client {
+func NewClient(configs ...*Config) Client {
 	cfg := GetConfig(configs...)
 	return &feignClient{
-		baseURL: baseURL,
-		restyClient: resty.New().SetBaseURL(baseURL).
+		baseURL: cfg.Url,
+		headers: cfg.Headers,
+		restyClient: resty.New().
 			SetTimeout(cfg.Timeout).
 			SetRetryCount(cfg.RetryCount).
 			SetRetryWaitTime(cfg.RetryWait),
@@ -40,6 +43,14 @@ func (e *HttpError) Error() string {
 	return fmt.Sprintf("HTTP %d: %s - %s", e.StatusCode, e.Status, e.Body)
 }
 
+// Nếu value bắt đầu bằng http/https thì dùng luôn, ngược lại tra từ Viper
+func resolveUrl(value string) string {
+	if strings.HasPrefix(value, "http://") || strings.HasPrefix(value, "https://") {
+		return value
+	}
+	return viper.GetString(value) // nếu không có thì trả về ""
+}
+
 // Create gán các hàm vào struct target (ví dụ: *UserClient)
 func (c *feignClient) Create(target any) {
 	t := reflect.TypeOf(target).Elem()
@@ -47,6 +58,30 @@ func (c *feignClient) Create(target any) {
 
 	for i := 0; i < t.NumField(); i++ {
 		field := t.Field(i)
+
+		// Tìm field dummy có tag @Url
+		baseUrl := c.baseURL
+		for i := 0; i < t.NumField(); i++ {
+			field := t.Field(i)
+			if field.Type == reflect.TypeOf(struct{}{}) {
+				tag := field.Tag.Get("feign")
+				for _, line := range strings.Split(tag, "|") {
+					line = strings.TrimSpace(line)
+					if strings.HasPrefix(line, "@Url") {
+						parts := strings.Fields(line)
+						if len(parts) >= 2 {
+							baseUrl = resolveUrl(parts[1])
+							break
+						}
+					}
+				}
+				if baseUrl != c.baseURL {
+					break
+				}
+			}
+		}
+		c.restyClient.SetBaseURL(baseUrl)
+
 		if field.Type.Kind() != reflect.Func {
 			continue
 		}
@@ -133,6 +168,11 @@ func (c *feignClient) Create(target any) {
 
 			// Tạo request Resty
 			r := c.restyClient.R()
+
+			// Set headers từ config
+			for k, v := range c.headers {
+				r.SetHeader(k, v)
+			}
 
 			// Set headers
 			for k, v := range headersMap {
