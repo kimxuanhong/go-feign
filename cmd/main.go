@@ -24,6 +24,8 @@ type UserClient struct {
 	GetUser     func(id string, auth string) (*User, error)              `feign:"@GET /api/v1/users/{id} | @Path id | @Header Authorization"`
 	GetUserById func(user string, id string, auth string) (*User, error) `feign:"@GET /api/v1/users/{user} | @Path user | @Query id | @Header Authorization"`
 	CreateUser  func(user User, auth string) (*User, error)              `feign:"@POST /api/v1/users | @Body user | @Header Authorization"`
+	UpdateUser  func(user User, auth string) (*User, error)              `feign:"@POST /api/v1/users | @Body user | @Header Authorization"`
+	GetAllUser  func(auth string) ([]User, error)                        `feign:"@POST /api/v1/users | @Header Authorization"`
 }
 
 func main() {
