@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"github.com/kimxuanhong/go-feign/feign"
@@ -22,12 +23,12 @@ type User struct {
 }
 
 type UserClient struct {
-	_           struct{}                                                 `feign:"@Url http://localhost:8081/api/v1"`
-	GetUser     func(id string, auth string) (*User, error)              `feign:"@GET /users/{id} | @Path id | @Header Authorization"`
-	GetUserById func(user string, id string, auth string) (*User, error) `feign:"@GET /users/{user} | @Path user | @Query id | @Header Authorization"`
-	CreateUser  func(user User, auth string) (*User, error)              `feign:"@POST /users | @Body user | @Header Authorization"`
-	UpdateUser  func(user User, auth string) (*User, error)              `feign:"@POST /users | @Body user | @Header Authorization"`
-	GetAllUser  func(auth string) ([]User, error)                        `feign:"@POST /users | @Header Authorization"`
+	_           struct{}                                                                      `feign:"@Url http://localhost:8081/api/v1"`
+	GetUser     func(ctx context.Context, id string, auth string) (*User, error)              `feign:"@GET /users/{id} | @Path id | @Header Authorization"`
+	GetUserById func(ctx context.Context, user string, id string, auth string) (*User, error) `feign:"@GET /users/{user} | @Path user | @Query id | @Header Authorization"`
+	CreateUser  func(ctx context.Context, user User, auth string) (*User, error)              `feign:"@POST /users | @Body user | @Header Authorization"`
+	UpdateUser  func(ctx context.Context, user User, auth string) (*User, error)              `feign:"@POST /users | @Body user | @Header Authorization"`
+	GetAllUser  func(ctx context.Context, auth string) ([]User, error)                        `feign:"@POST /users | @Header Authorization"`
 }
 
 func main() {
@@ -36,7 +37,10 @@ func main() {
 	feignClient := feign.NewClient()
 	feignClient.Create(client) // OK
 
-	user, err := client.GetUser("123", "token") // gọi được, vì func đã được gán
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+
+	user, err := client.GetUser(ctx, "123", "token") // gọi được, vì func đã được gán
 	fmt.Println(user, err)
 
 	//user2, err := client.GetUserById("123", "hong kim", "token") // gọi được, vì func đã được gán

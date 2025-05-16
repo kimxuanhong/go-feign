@@ -1,6 +1,7 @@
 package feign
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/spf13/viper"
@@ -88,6 +89,18 @@ func (c *feignClient) Create(target any) {
 
 		methodType := field.Type
 
+		// Bắt buộc hàm có ít nhất 1 tham số (context.Context)
+		if methodType.NumIn() < 1 {
+			panic(fmt.Sprintf("method %s must have at least one parameter (context.Context)", field.Name))
+		}
+
+		// Kiểm tra tham số đầu tiên phải là context.Context
+		ctxType := reflect.TypeOf((*context.Context)(nil)).Elem()
+		if !methodType.In(0).Implements(ctxType) {
+			panic(fmt.Sprintf("method %s first parameter must be context.Context", field.Name))
+		}
+
+		// Kiểm tra trả về phải 2 giá trị, giá trị thứ 2 phải là error
 		if methodType.NumOut() != 2 || !methodType.Out(1).Implements(reflect.TypeOf((*error)(nil)).Elem()) {
 			panic(fmt.Sprintf("method %s must return (*T, error)", field.Name))
 		}
@@ -127,10 +140,16 @@ func (c *feignClient) Create(target any) {
 		}
 
 		fn := reflect.MakeFunc(methodType, func(args []reflect.Value) []reflect.Value {
-			j := 0
-			var body interface{} = nil
+			// Lấy context đầu tiên
+			ctx := args[0].Interface().(context.Context)
 
+			j := 1 // index param tiếp theo sau context
+
+			var body interface{} = nil
 			if bodyParam != "" {
+				if j >= len(args) {
+					panic("body param missing in function call args")
+				}
 				body = args[j].Interface()
 				j++
 			}
@@ -168,11 +187,13 @@ func (c *feignClient) Create(target any) {
 
 			// Tạo request Resty
 			r := c.restyClient.R()
+			r.SetContext(ctx)
 
 			// Set headers
 			if c.headers == nil {
 				c.headers = make(map[string]string)
 			}
+
 			for k, v := range headersMap {
 				c.headers[k] = v
 			}
@@ -228,7 +249,7 @@ func (c *feignClient) Create(target any) {
 				return []reflect.Value{out0, reflect.ValueOf(httpErr)}
 			}
 
-			// Unmarshal
+			// Unmarshal JSON response vào struct trả về
 			out := reflect.New(methodType.Out(0).Elem())
 			err = json.Unmarshal(respBytes, out.Interface())
 			if err != nil {
