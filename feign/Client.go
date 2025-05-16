@@ -169,13 +169,16 @@ func (c *feignClient) Create(target any) {
 			// Tạo request Resty
 			r := c.restyClient.R()
 
-			// Set headers từ config
-			for k, v := range c.headers {
-				r.SetHeader(k, v)
+			// Set headers
+			if c.headers == nil {
+				c.headers = make(map[string]string)
+			}
+			for k, v := range headersMap {
+				c.headers[k] = v
 			}
 
-			// Set headers
-			for k, v := range headersMap {
+			// Set headers từ config
+			for k, v := range c.headers {
 				r.SetHeader(k, v)
 			}
 
@@ -195,7 +198,7 @@ func (c *feignClient) Create(target any) {
 				bodyJson, _ := json.Marshal(body)
 				fmt.Println("📝 Body:", string(bodyJson))
 			}
-			for k, v := range headersMap {
+			for k, v := range c.headers {
 				fmt.Printf("🔐 Header: %s = %s\n", k, v)
 			}
 			if len(queryParams) > 0 {
