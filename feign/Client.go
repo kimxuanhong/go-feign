@@ -56,31 +56,31 @@ func (c *feignClient) Create(target any) {
 	t := reflect.TypeOf(target).Elem()
 	v := reflect.ValueOf(target).Elem()
 
+	// Tìm field dummy có tag @Url
+	baseUrl := c.baseURL
 	for i := 0; i < t.NumField(); i++ {
 		field := t.Field(i)
-
-		// Tìm field dummy có tag @Url
-		baseUrl := c.baseURL
-		for i := 0; i < t.NumField(); i++ {
-			field := t.Field(i)
-			if field.Type == reflect.TypeOf(struct{}{}) {
-				tag := field.Tag.Get("feign")
-				for _, line := range strings.Split(tag, "|") {
-					line = strings.TrimSpace(line)
-					if strings.HasPrefix(line, "@Url") {
-						parts := strings.Fields(line)
-						if len(parts) >= 2 {
-							baseUrl = resolveUrl(parts[1])
-							break
-						}
+		if field.Type == reflect.TypeOf(struct{}{}) {
+			tag := field.Tag.Get("feign")
+			for _, line := range strings.Split(tag, "|") {
+				line = strings.TrimSpace(line)
+				if strings.HasPrefix(line, "@Url") {
+					parts := strings.Fields(line)
+					if len(parts) >= 2 {
+						baseUrl = resolveUrl(parts[1])
+						break
 					}
 				}
-				if baseUrl != c.baseURL {
-					break
-				}
+			}
+			if baseUrl != c.baseURL {
+				break
 			}
 		}
-		c.restyClient.SetBaseURL(baseUrl)
+	}
+	c.restyClient.SetBaseURL(baseUrl)
+
+	for i := 0; i < t.NumField(); i++ {
+		field := t.Field(i)
 
 		if field.Type.Kind() != reflect.Func {
 			continue
