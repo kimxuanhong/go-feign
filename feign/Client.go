@@ -190,7 +190,7 @@ func (c *feignClient) Create(target any) {
 			}
 
 			// Log request info
-			fmt.Printf("➡️ Request: %s %s\n", httpMethod, c.baseURL+pathProcessed)
+			fmt.Printf("➡️ Request: %s %s\n", httpMethod, baseUrl+pathProcessed)
 			if bodyParam != "" {
 				bodyJson, _ := json.Marshal(body)
 				fmt.Println("📝 Body:", string(bodyJson))
