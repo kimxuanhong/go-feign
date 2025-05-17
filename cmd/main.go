@@ -40,11 +40,11 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
 
-	user, err := client.GetUser(ctx, "123", "token") // gọi được, vì func đã được gán
-	fmt.Println(user, err)
+	//user, err := client.GetUser(ctx, "123", "token") // gọi được, vì func đã được gán
+	//fmt.Println(user, err)
 
-	//user2, err := client.GetUserById("123", "hong kim", "token") // gọi được, vì func đã được gán
-	//fmt.Println(user2, err)
+	user2, err := client.GetUserById(ctx, "123", "hong kim", "token") // gọi được, vì func đã được gán
+	fmt.Println(user2, err)
 
 	//newUser := User{UserName: "Alice"}
 	//createdUser, err := client.CreateUser(newUser, "Bearer xyz")

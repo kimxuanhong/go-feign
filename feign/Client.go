@@ -11,25 +11,21 @@ import (
 	"github.com/go-resty/resty/v2"
 )
 
-type Client interface {
-	Create(target any)
+type Client struct {
+	*resty.Client
+	baseURL string
+	headers map[string]string
 }
 
-type feignClient struct {
-	baseURL     string
-	headers     map[string]string
-	restyClient *resty.Client
-}
-
-func NewClient(configs ...*Config) Client {
+func NewClient(configs ...*Config) *Client {
 	cfg := GetConfig(configs...)
-	return &feignClient{
+	return &Client{
 		baseURL: cfg.Url,
 		headers: cfg.Headers,
-		restyClient: resty.New().
+		Client: resty.New().
 			SetTimeout(cfg.Timeout).
 			SetRetryCount(cfg.RetryCount).
-			SetRetryWaitTime(cfg.RetryWait),
+			SetRetryWaitTime(cfg.RetryWait).SetDebug(true),
 	}
 }
 
@@ -53,7 +49,7 @@ func resolveUrl(value string) string {
 }
 
 // Create gán các hàm vào struct target (ví dụ: *UserClient)
-func (c *feignClient) Create(target any) {
+func (c *Client) Create(target any) {
 	t := reflect.TypeOf(target).Elem()
 	v := reflect.ValueOf(target).Elem()
 
@@ -68,7 +64,10 @@ func (c *feignClient) Create(target any) {
 				if strings.HasPrefix(line, "@Url") {
 					parts := strings.Fields(line)
 					if len(parts) >= 2 {
-						baseUrl = resolveUrl(parts[1])
+						url := resolveUrl(parts[1])
+						if url != "" {
+							baseUrl = url
+						}
 						break
 					}
 				}
@@ -78,7 +77,7 @@ func (c *feignClient) Create(target any) {
 			}
 		}
 	}
-	c.restyClient.SetBaseURL(baseUrl)
+	c.SetBaseURL(baseUrl)
 
 	for i := 0; i < t.NumField(); i++ {
 		field := t.Field(i)
@@ -186,8 +185,7 @@ func (c *feignClient) Create(target any) {
 			}
 
 			// Tạo request Resty
-			r := c.restyClient.R()
-			r.SetContext(ctx)
+			r := c.R().SetContext(ctx)
 
 			// Set headers
 			if c.headers == nil {
