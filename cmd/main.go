@@ -26,7 +26,7 @@ type UserClient struct {
 	//_ struct{} `feign:"@Url http://localhost:8081/api/v1"`
 	//GetUser     func(ctx context.Context, id string, auth string) (*User, error)              `feign:"@GET /users/{id} | @Path id | @Header Authorization"`
 
-	// @GET http://localhost:8081/api/v1/users/{user}
+	// @GET /users/{user}
 	// @Path user
 	// @Query id
 	// @Header auth
@@ -37,7 +37,7 @@ type UserClient struct {
 }
 
 func (c *UserClient) BaseUrl() string {
-	return "Nam"
+	return "http://localhost:8081/api/v1"
 }
 
 func main() {

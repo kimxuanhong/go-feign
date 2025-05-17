@@ -62,11 +62,11 @@ func resolveUrl(value string) string {
 	return viper.GetString(value)
 }
 
-type BaseClient interface {
+type Feign interface {
 	BaseUrl() string
 }
 
-func (c *Client) Create(target BaseClient) {
+func (c *Client) Create(target Feign) {
 	t := reflect.TypeOf(target).Elem()
 	v := reflect.ValueOf(target).Elem()
 
@@ -79,6 +79,15 @@ func (c *Client) Create(target BaseClient) {
 	if err != nil {
 		log.Fatalf("failed to parse tags for %T: %v", target, err)
 	}
+
+	baseUrl := c.baseURL
+	if target.BaseUrl() != "" {
+		url := resolveUrl(target.BaseUrl())
+		if url != "" {
+			baseUrl = url
+		}
+	}
+	c.SetBaseURL(baseUrl)
 
 	for i := 0; i < t.NumField(); i++ {
 		field := t.Field(i)
