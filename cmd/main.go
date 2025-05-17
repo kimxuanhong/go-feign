@@ -23,12 +23,21 @@ type User struct {
 }
 
 type UserClient struct {
-	_           struct{}                                                                      `feign:"@Url http://localhost:8081/api/v1"`
-	GetUser     func(ctx context.Context, id string, auth string) (*User, error)              `feign:"@GET /users/{id} | @Path id | @Header Authorization"`
+	//_ struct{} `feign:"@Url http://localhost:8081/api/v1"`
+	//GetUser     func(ctx context.Context, id string, auth string) (*User, error)              `feign:"@GET /users/{id} | @Path id | @Header Authorization"`
+
+	// @GET http://localhost:8081/api/v1/users/{user}
+	// @Path user
+	// @Query id
+	// @Header auth
 	GetUserById func(ctx context.Context, user string, id string, auth string) (*User, error) `feign:"@GET /users/{user} | @Path user | @Query id | @Header Authorization"`
-	CreateUser  func(ctx context.Context, user User, auth string) (*User, error)              `feign:"@POST /users | @Body user | @Header Authorization"`
-	UpdateUser  func(ctx context.Context, user User, auth string) (*User, error)              `feign:"@POST /users | @Body user | @Header Authorization"`
-	GetAllUser  func(ctx context.Context, auth string) ([]User, error)                        `feign:"@POST /users | @Header Authorization"`
+	//CreateUser  func(ctx context.Context, user User, auth string) (*User, error)              `feign:"@POST /users | @Body user | @Header Authorization"`
+	//UpdateUser  func(ctx context.Context, user User, auth string) (*User, error)              `feign:"@POST /users | @Body user | @Header Authorization"`
+	//GetAllUser  func(ctx context.Context, auth string) ([]User, error)                        `feign:"@POST /users | @Header Authorization"`
+}
+
+func (c *UserClient) BaseUrl() string {
+	return "Nam"
 }
 
 func main() {
