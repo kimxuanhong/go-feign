@@ -15,6 +15,7 @@ type Client struct {
 	*resty.Client
 	baseURL string
 	headers map[string]string
+	Config  *Config
 }
 
 func NewClient(configs ...*Config) *Client {
@@ -22,10 +23,12 @@ func NewClient(configs ...*Config) *Client {
 	return &Client{
 		baseURL: cfg.Url,
 		headers: cfg.Headers,
+		Config:  cfg,
 		Client: resty.New().
 			SetTimeout(cfg.Timeout).
 			SetRetryCount(cfg.RetryCount).
-			SetRetryWaitTime(cfg.RetryWait).SetDebug(true),
+			SetRetryWaitTime(cfg.RetryWait).
+			SetDebug(cfg.Debug),
 	}
 }
 
